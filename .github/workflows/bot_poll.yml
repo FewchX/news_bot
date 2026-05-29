@@ -1,0 +1,58 @@
+name: Bot Poll (on-demand /news)
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # каждые 10 минут (публичный репо = бесплатно)
+  workflow_dispatch:           # ручной запуск для теста
+
+concurrency:
+  group: bot-poll
+  cancel-in-progress: false   # не прерывать если уже идёт дайджест
+
+permissions:
+  contents: write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for /news command
+        id: check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 poll_commands.py
+
+      # Следующие шаги запускаются ТОЛЬКО если пришёл /news
+      - name: Setup Python
+        if: steps.check.outputs.trigger == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.check.outputs.trigger == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Run digest
+        if: steps.check.outputs.trigger == 'true'
+        env:
+          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          FORCE_RUN: '1'
+        run: python main.py
+
+      - name: Commit state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase
+          git add state/tg_offset.json state/seen.json
+          git diff --staged --quiet || git commit -m "chore: update bot state [skip ci]"
+          git push
