@@ -51,3 +51,17 @@ topics:
   #     - "large language model news"
   #     - "GPT Claude Gemini news"
   #   max_per_topic: 8
+
+# ── Email рассылки (IMAP) ──────────────────────────────────────────────────────
+# Подпишись на рассылки с newsbot053@gmail.com — они попадут в дайджест.
+# Пароль приложения хранится в GitHub Secrets как GMAIL_APP_PASSWORD.
+email_sources:
+  - name: "📬 Рассылки"
+    imap_host: "imap.gmail.com"
+    username: "newsbot053@gmail.com"
+    priority: high
+    max_per_source: 20
+    # Опционально — фильтр по отправителям (если пусто — берём все письма):
+    # senders:
+    #   - "newsletter@aihero.dev"
+    #   - "digest@tldr.tech"

@@ -149,6 +149,140 @@ def fetch_topic_articles(topic: dict, seen: set, cutoff: datetime) -> list:
     return articles
 
 
+# ── Email (IMAP) ─────────────────────────────────────────────────────────────
+
+def fetch_email_articles(email_cfg: dict, seen: set, cutoff: datetime) -> list:
+    import imaplib
+    import email as email_lib
+    from email.header import decode_header
+    from email.utils import parsedate_to_datetime
+
+    host = email_cfg.get("imap_host", "imap.gmail.com")
+    port = email_cfg.get("port", 993)
+    username = email_cfg["username"]
+    password = os.environ.get("GMAIL_APP_PASSWORD", "")
+    if not password:
+        print("  [email] GMAIL_APP_PASSWORD не задан, пропускаю", file=sys.stderr)
+        return []
+
+    topic_name = email_cfg.get("name", "📧 Newsletters")
+    priority = email_cfg.get("priority", "high")
+    max_n = email_cfg.get("max_per_source", 20)
+    allowed_senders = [s.lower() for s in email_cfg.get("senders", [])]
+
+    def _decode_header(raw: str) -> str:
+        parts = decode_header(raw or "")
+        result = ""
+        for part, enc in parts:
+            if isinstance(part, bytes):
+                result += part.decode(enc or "utf-8", errors="replace")
+            else:
+                result += str(part)
+        return result
+
+    def _extract_body(msg) -> str:
+        if msg.is_multipart():
+            plain, html = "", ""
+            for part in msg.walk():
+                ct = part.get_content_type()
+                cte = str(part.get("Content-Transfer-Encoding", ""))
+                try:
+                    raw = part.get_payload(decode=True)
+                    if raw is None:
+                        continue
+                    charset = part.get_content_charset() or "utf-8"
+                    text = raw.decode(charset, errors="replace")
+                    if ct == "text/plain" and not plain:
+                        plain = text
+                    elif ct == "text/html" and not html:
+                        html = _strip_html(text)
+                except Exception:
+                    pass
+            return plain or html
+        else:
+            try:
+                raw = msg.get_payload(decode=True)
+                if raw is None:
+                    return ""
+                charset = msg.get_content_charset() or "utf-8"
+                text = raw.decode(charset, errors="replace")
+                if msg.get_content_type() == "text/html":
+                    return _strip_html(text)
+                return text
+            except Exception:
+                return ""
+
+    articles = []
+    try:
+        mail = imaplib.IMAP4_SSL(host, port)
+        mail.login(username, password)
+        mail.select("INBOX")
+
+        since_str = cutoff.strftime("%d-%b-%Y")
+        status, data = mail.search(None, f"UNSEEN SINCE {since_str}")
+        if status != "OK" or not data[0]:
+            mail.logout()
+            return []
+
+        email_ids = list(reversed(data[0].split()))
+        seen_this_run: set = set()
+
+        for eid in email_ids:
+            if len(articles) >= max_n:
+                break
+            status, msg_data = mail.fetch(eid, "(RFC822)")
+            if status != "OK":
+                continue
+            msg = email_lib.message_from_bytes(msg_data[0][1])
+
+            sender = _decode_header(msg.get("From", "")).lower()
+            if allowed_senders and not any(s in sender for s in allowed_senders):
+                continue
+
+            subject = _decode_header(msg.get("Subject", "")).strip() or "(без темы)"
+
+            try:
+                pub = parsedate_to_datetime(msg.get("Date", ""))
+                if pub.tzinfo is None:
+                    pub = pub.replace(tzinfo=timezone.utc)
+            except Exception:
+                pub = datetime.now(timezone.utc)
+
+            if pub < cutoff:
+                continue
+
+            body = " ".join(_extract_body(msg).split())[:500]
+            h = url_hash(f"email:{eid.decode()}:{username}")
+
+            if h in seen or h in seen_this_run:
+                continue
+            seen_this_run.add(h)
+
+            articles.append({
+                "topic": topic_name,
+                "priority": priority,
+                "title": subject,
+                "snippet": body,
+                "link": "",
+                "published": pub.isoformat(),
+                "_pub": pub,
+                "_hash": h,
+                "_eid": eid,
+            })
+
+        # Помечаем обработанные письма как прочитанные
+        for art in articles:
+            mail.store(art["_eid"], "+FLAGS", "\\Seen")
+
+        mail.logout()
+        print(f"  → {len(articles)} новых писем", file=sys.stderr)
+        return articles
+
+    except Exception as exc:
+        print(f"  [email] ошибка: {exc}", file=sys.stderr)
+        return []
+
+
 # ── LLM ──────────────────────────────────────────────────────────────────────
 
 _SYSTEM = """Ты — редактор персонального новостного дайджеста.
@@ -159,6 +293,7 @@ _SYSTEM = """Ты — редактор персонального новостн
 2. Заголовок каждого раздела: <b>название топика</b> (как в данных).
 3. Каждая новость — новая строка, начинается с •
 4. Формат строки: • Краткая суть <a href="url">читать</a>
+   Если у статьи НЕТ поля link — просто: • Краткая суть (без ссылки)
 5. priority=critical — перечисляй ВСЕ новости без исключения, ничего не выбрасывай.
 6. priority=high — перечисляй все, пиши коротко.
 7. priority=normal — можешь объединять очень похожие, убирать шум.
@@ -170,10 +305,12 @@ _SYSTEM = """Ты — редактор персонального новостн
 
 def call_llm(articles: list) -> str:
     now_str = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
-    payload_articles = [
-        {k: v for k, v in a.items() if not k.startswith("_")}
-        for a in articles
-    ]
+    payload_articles = []
+    for a in articles:
+        art = {k: v for k, v in a.items() if not k.startswith("_")}
+        if not art.get("link"):
+            art.pop("link", None)  # письма без URL — не путаем модель
+        payload_articles.append(art)
     user_msg = (
         f"Дата дайджеста: {now_str}\n\n"
         f"Новости:\n{json.dumps(payload_articles, ensure_ascii=False, indent=2)}"
@@ -301,6 +438,11 @@ def main(force: bool = False) -> None:
         arts = fetch_topic_articles(topic, seen, cutoff)
         all_articles.extend(arts)
         print(f"  → {len(arts)} новых статей", file=sys.stderr)
+
+    for email_cfg in cfg.get("email_sources", []):
+        print(f"[email] {email_cfg.get('name', 'inbox')} ({email_cfg['username']})", file=sys.stderr)
+        arts = fetch_email_articles(email_cfg, seen, cutoff)
+        all_articles.extend(arts)
 
     if not all_articles:
         print("[done] нет новых статей", file=sys.stderr)
