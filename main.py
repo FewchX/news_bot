@@ -118,18 +118,22 @@ def _entry_to_article(entry, topic_name: str, priority: str) -> dict | None:
 
 def fetch_topic_articles(topic: dict, seen: set, cutoff: datetime) -> list:
     priority = topic.get("priority", "normal")
-    urls = [_gn_url(q) for q in topic.get("queries", [])]
-    urls += topic.get("extra_feeds", [])
+    # (url, source_type) — google news всегда "news", extra_feeds по домену
+    urls_typed: list = [(_gn_url(q), "news") for q in topic.get("queries", [])]
+    for feed_url in topic.get("extra_feeds", []):
+        stype = "youtube" if "youtube.com" in feed_url else "news"
+        urls_typed.append((feed_url, stype))
 
     seen_this_run: set = set()
     articles: list = []
 
-    for url in urls:
+    for url, source_type in urls_typed:
         print(f"  ← {url[:90]}", file=sys.stderr)
         for entry in _fetch_feed(url):
             art = _entry_to_article(entry, topic["name"], priority)
             if art is None:
                 continue
+            art["_source_type"] = source_type
             h = art["_hash"]
             if h in seen or h in seen_this_run:
                 continue
@@ -268,6 +272,7 @@ def fetch_email_articles(email_cfg: dict, seen: set, cutoff: datetime) -> list:
                 "_pub": pub,
                 "_hash": h,
                 "_eid": eid,
+                "_source_type": "email",
             })
 
         # Помечаем обработанные письма как прочитанные
@@ -449,13 +454,26 @@ def main(force: bool = False) -> None:
         send_no_news()
         return
 
-    print(f"[llm] всего {len(all_articles)} статей → вызов модели {MODEL}", file=sys.stderr)
-    try:
-        digest = call_llm(all_articles)
-        send_telegram(digest)
-    except Exception as exc:
-        print(f"[llm] ошибка: {exc} → fallback без суммаризации", file=sys.stderr)
-        _tg_send_one(fallback_digest(all_articles), None)
+    # ── 3 отдельных сообщения: почта → YouTube → новости ─────────────────────
+    SECTIONS = [
+        ("email",   "📬 Письма и рассылки"),
+        ("youtube", "📺 YouTube"),
+        ("news",    "📰 Новости"),
+    ]
+
+    now_str = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
+    for source_type, section_label in SECTIONS:
+        bucket = [a for a in all_articles if a.get("_source_type") == source_type]
+        if not bucket:
+            continue
+        print(f"[{source_type}] {len(bucket)} статей → LLM", file=sys.stderr)
+        header = f"<b>{section_label}</b>  •  <i>{now_str}</i>\n\n"
+        try:
+            digest = call_llm(bucket)
+            send_telegram(header + digest)
+        except Exception as exc:
+            print(f"[{source_type}] LLM ошибка: {exc}", file=sys.stderr)
+            _tg_send_one(header + fallback_digest(bucket), None)
 
     new_hashes = {a["_hash"] for a in all_articles}
     seen.update(new_hashes)

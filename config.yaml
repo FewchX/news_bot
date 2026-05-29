@@ -100,17 +100,6 @@ email_sources:
       - "mattpocock"
       - "matt pocock"
 
-  # Anthropic / Claude developer newsletter
-  - name: "🤖 Anthropic & Claude"
-    imap_host: "imap.gmail.com"
-    username: "newsbot053@gmail.com"
-    priority: normal
-    max_per_source: 10
-    senders:
-      - "anthropic.com"
-      - "claude.ai"
-      - "anthropic"
-
   # Всё остальное — catch-all (подпишись на любые другие рассылки)
   - name: "📬 Рассылки"
     imap_host: "imap.gmail.com"
