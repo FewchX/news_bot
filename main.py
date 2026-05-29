@@ -564,15 +564,15 @@ def main(force: bool = False) -> None:
             return
         if hour_local == 7:
             mode = "night_recap"
-            lookback_h = 9               # с 22:00 вчера до 07:00
+            lookback_h = 9.5             # с 22:00 вчера до 07:00 + запас
             label_suffix = "  •  🌅 Новости за ночь"
         elif hour_local == 22:
             mode = "day_recap"
-            lookback_h = 1
+            lookback_h = 1.5
             label_suffix = "  •  🌙 Итог дня"
         else:
             mode = "hourly"
-            lookback_h = 1
+            lookback_h = 1.5             # запас на случай позднего запуска
             label_suffix = ""
 
     print(f"[main] mode={mode} lookback={lookback_h}h hour_local={hour_local}", file=sys.stderr)

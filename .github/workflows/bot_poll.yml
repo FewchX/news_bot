@@ -2,7 +2,7 @@ name: Bot Poll (on-demand /news)
 
 on:
   schedule:
-    - cron: '*/5 * * * *'    # каждые 5 минут — минимум GitHub Actions (публичный репо = бесплатно)
+    - cron: '*/5 * * * *'    # каждые 5 минут (публичный репо = бесплатно, без лимитов)
   workflow_dispatch:           # ручной запуск для теста
 
 concurrency:
