@@ -335,7 +335,7 @@ _SYSTEM = """Ты — редактор персонального новостн
     Обычный текст не нужно экранировать — пиши символы . ( ) - ! как есть."""
 
 
-def call_llm(articles: list) -> str:
+def call_llm(articles: list, source_type: str = "") -> str:
     now_str = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
     payload_articles = []
     for a in articles:
@@ -347,15 +347,16 @@ def call_llm(articles: list) -> str:
         f"Дата дайджеста: {now_str}\n\n"
         f"Новости:\n{json.dumps(payload_articles, ensure_ascii=False, indent=2)}"
     )
-    # Подклеиваем пользовательский фильтр если задан
+    # Пользовательский фильтр применяется только к разделу новостей
     system = _SYSTEM
-    user_filter = _USER_SETTINGS.get("filter", "").strip()
-    if user_filter:
-        system += (
-            "\n\nПОЛЬЗОВАТЕЛЬСКИЙ ФИЛЬТР — соблюдай строго:\n"
-            f"{user_filter}\n"
-            "Если новость явно попадает под этот фильтр — не включай её в дайджест."
-        )
+    if source_type == "news":
+        user_filter = _USER_SETTINGS.get("filter", "").strip()
+        if user_filter:
+            system += (
+                "\n\nПОЛЬЗОВАТЕЛЬСКИЙ ФИЛЬТР — соблюдай строго:\n"
+                f"{user_filter}\n"
+                "Если новость явно попадает под этот фильтр — не включай её в дайджест."
+            )
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
@@ -511,7 +512,7 @@ def main(force: bool = False) -> None:
             }
             print(f"[{source_type}] {len(bucket)} статей → LLM", file=sys.stderr)
             try:
-                digest = call_llm(bucket)
+                digest = call_llm(bucket, source_type)
                 send_telegram(header + digest)
             except Exception as exc:
                 print(f"[{source_type}] LLM ошибка: {exc}", file=sys.stderr)
