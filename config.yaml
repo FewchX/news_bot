@@ -16,8 +16,7 @@ topics:
       - '"Even Realities"'
       - '"Even Realities G1"'
       - '"Even Realities glasses"'
-    extra_feeds:
-      - "https://www.reddit.com/r/EvenRealities/.rss"
+    extra_feeds: []
     max_per_topic: null  # null = без лимита для critical
 
   # ── ВЫСОКИЙ ПРИОРИТЕТ — все новости, коротко ──────────────────────────────
