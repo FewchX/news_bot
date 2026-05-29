@@ -24,8 +24,8 @@ topics:
     priority: high
     queries:
       - '"Matt Pocock" AI'
-      - '"Matt Pocock" TypeScript'
-    extra_feeds: []
+    extra_feeds:
+      - "https://www.aihero.dev/rss.xml"
     max_per_topic: 15
 
   # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
