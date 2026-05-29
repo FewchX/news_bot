@@ -36,7 +36,9 @@ topics:
       - '"Anthropic" AI news'
       - '"Claude" Anthropic model'
       - '"Claude 4" OR "Claude 3" Anthropic'
-    extra_feeds: []
+    extra_feeds:
+      # Официальный YouTube канал Anthropic
+      - "https://www.youtube.com/feeds/videos.xml?channel_id=UCrDwWp7EBBv4NwvScIpBDOA"
     max_per_topic: 10
 
   - name: "💬 OpenAI & ChatGPT"
@@ -97,6 +99,17 @@ email_sources:
       - "ai-hero"
       - "mattpocock"
       - "matt pocock"
+
+  # Anthropic / Claude developer newsletter
+  - name: "🤖 Anthropic & Claude"
+    imap_host: "imap.gmail.com"
+    username: "newsbot053@gmail.com"
+    priority: normal
+    max_per_source: 10
+    senders:
+      - "anthropic.com"
+      - "claude.ai"
+      - "anthropic"
 
   # Всё остальное — catch-all (подпишись на любые другие рассылки)
   - name: "📬 Рассылки"
