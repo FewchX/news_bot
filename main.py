@@ -24,12 +24,7 @@ if os.path.exists(_env_path):
                 _k, _v = _line.split("=", 1)
                 os.environ.setdefault(_k.strip(), _v.strip())
 
-# ── DST guard — пропускаем запуски не в 7:00 / 19:00 по Братиславе ───────────
 TZ = ZoneInfo("Europe/Bratislava")
-_now_local = datetime.now(TZ)
-if not os.environ.get("FORCE_RUN") and _now_local.hour not in (7, 19):
-    print(f"[skip] local hour={_now_local.hour}, not 7 or 19", file=sys.stderr)
-    sys.exit(0)
 
 # ── Config & secrets ──────────────────────────────────────────────────────────
 with open(os.path.join(_root, "config.yaml"), encoding="utf-8") as _f:
@@ -291,7 +286,14 @@ def fallback_digest(articles: list) -> str:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main() -> None:
+def main(force: bool = False) -> None:
+    # ── DST guard — пропускаем запуски не в 7:00 / 19:00 по Братиславе ───────
+    if not force and not os.environ.get("FORCE_RUN"):
+        hour_local = datetime.now(TZ).hour
+        if hour_local not in (7, 19):
+            print(f"[skip] local hour={hour_local}, not 7 or 19", file=sys.stderr)
+            return
+
     seen = load_seen()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_H)
     all_articles: list = []
