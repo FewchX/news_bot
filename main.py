@@ -45,7 +45,19 @@ TG_CHAT = os.environ["TELEGRAM_CHAT_ID"]
 
 STATE_PATH = os.path.join(_root, "state", "seen.json")
 LAST_SEEN_PATH = os.path.join(_root, "state", "last_seen.json")
+SETTINGS_PATH = os.path.join(_root, "state", "user_settings.json")
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; newsbot/1.0)"}
+
+
+def _load_user_settings() -> dict:
+    try:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+_USER_SETTINGS = _load_user_settings()
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
@@ -335,8 +347,17 @@ def call_llm(articles: list) -> str:
         f"Дата дайджеста: {now_str}\n\n"
         f"Новости:\n{json.dumps(payload_articles, ensure_ascii=False, indent=2)}"
     )
+    # Подклеиваем пользовательский фильтр если задан
+    system = _SYSTEM
+    user_filter = _USER_SETTINGS.get("filter", "").strip()
+    if user_filter:
+        system += (
+            "\n\nПОЛЬЗОВАТЕЛЬСКИЙ ФИЛЬТР — соблюдай строго:\n"
+            f"{user_filter}\n"
+            "Если новость явно попадает под этот фильтр — не включай её в дайджест."
+        )
     body = {
-        "systemInstruction": {"parts": [{"text": _SYSTEM}]},
+        "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
     }
@@ -456,6 +477,7 @@ def main(force: bool = False) -> None:
     for topic in TOPICS:
         print(f"[topic] {topic['name']} ({topic.get('priority', 'normal')})", file=sys.stderr)
         arts = fetch_topic_articles(topic, seen, cutoff)
+        seen.update(a["_hash"] for a in arts)  # дедупликация между топиками
         all_articles.extend(arts)
         print(f"  → {len(arts)} новых статей", file=sys.stderr)
 
