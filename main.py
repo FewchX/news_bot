@@ -46,6 +46,7 @@ TG_CHAT = os.environ["TELEGRAM_CHAT_ID"]
 STATE_PATH = os.path.join(_root, "state", "seen.json")
 LAST_SEEN_PATH = os.path.join(_root, "state", "last_seen.json")
 SETTINGS_PATH = os.path.join(_root, "state", "user_settings.json")
+PENDING_DELETE_PATH = os.path.join(_root, "state", "pending_delete.json")
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; newsbot/1.0)"}
 
 
@@ -392,6 +393,17 @@ def call_llm(articles: list, source_type: str = "") -> str:
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
 
+def _tg_delete(message_id: int) -> None:
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TG_TOKEN}/deleteMessage",
+            json={"chat_id": TG_CHAT, "message_id": message_id},
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+
 def _tg_post(payload: dict) -> bool:
     resp = requests.post(
         f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
@@ -545,6 +557,18 @@ def main(force: bool = False) -> None:
     save_seen(seen)
     save_last_seen(last_seen)
     print(f"[done] добавлено {len(new_hashes)} хэшей в seen.json", file=sys.stderr)
+
+    # Удаляем "⏳ Запускаю дайджест..." если запуск был через /news
+    try:
+        with open(PENDING_DELETE_PATH, encoding="utf-8") as f:
+            pending = json.load(f)
+        if pending.get("message_id"):
+            _tg_delete(pending["message_id"])
+        os.remove(PENDING_DELETE_PATH)
+    except FileNotFoundError:
+        pass  # запущено по cron — pending нет
+    except Exception as exc:
+        print(f"[cleanup] {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

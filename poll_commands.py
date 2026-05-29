@@ -6,6 +6,7 @@
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -16,6 +17,7 @@ TG_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 AUTHORIZED_CHAT = str(os.environ["TELEGRAM_CHAT_ID"])
 OFFSET_PATH = _root / "state" / "tg_offset.json"
 SETTINGS_PATH = _root / "state" / "user_settings.json"
+PENDING_DELETE_PATH = _root / "state" / "pending_delete.json"
 
 
 def _tg(method: str, data: dict | None = None, params: dict | None = None) -> dict:
@@ -77,30 +79,38 @@ def set_output(key: str, value: str) -> None:
         print(f"[output] {key}={value}")  # локальный запуск
 
 
-def handle_news_settings(args: str) -> None:
+def _tg_send(text: str, parse_mode: str = "HTML") -> int | None:
+    """Отправляет сообщение и возвращает message_id."""
+    resp = _tg("sendMessage", data={
+        "chat_id": AUTHORIZED_CHAT,
+        "parse_mode": parse_mode,
+        "text": text,
+    })
+    return resp.get("result", {}).get("message_id")
+
+
+def _tg_delete_msg(message_id: int) -> None:
+    """Удаляет сообщение (тихо игнорирует ошибки)."""
+    _tg("deleteMessage", data={"chat_id": AUTHORIZED_CHAT, "message_id": message_id})
+
+
+def handle_news_settings(args: str) -> int | None:
+    """Обрабатывает /news_settings, возвращает message_id ответа бота."""
     settings = load_settings()
 
     if args:
         if args.lower() in ("clear", "очистить", "-", "reset", "сброс"):
             settings.pop("filter", None)
             save_settings(settings)
-            _tg("sendMessage", data={
-                "chat_id": AUTHORIZED_CHAT,
-                "parse_mode": "HTML",
-                "text": "✅ Фильтр очищен. Все новости показываются без ограничений.",
-            })
+            msg_id = _tg_send("✅ Фильтр очищен. Все новости показываются без ограничений.")
         else:
             settings["filter"] = args
             save_settings(settings)
-            _tg("sendMessage", data={
-                "chat_id": AUTHORIZED_CHAT,
-                "parse_mode": "HTML",
-                "text": (
-                    "✅ <b>Фильтр сохранён</b>\n\n"
-                    f"{args}\n\n"
-                    "<i>Применится к следующему дайджесту.</i>"
-                ),
-            })
+            msg_id = _tg_send(
+                "✅ <b>Фильтр сохранён</b>\n\n"
+                f"{args}\n\n"
+                "<i>Это сообщение удалится через 10 сек.</i>"
+            )
         print(f"[poll] /news_settings обновлены: {args!r}", file=sys.stderr)
     else:
         current = settings.get("filter")
@@ -111,7 +121,8 @@ def handle_news_settings(args: str) -> None:
                 "Чтобы изменить:\n"
                 "<code>/news_settings [новые требования]</code>\n\n"
                 "Чтобы очистить:\n"
-                "<code>/news_settings clear</code>"
+                "<code>/news_settings clear</code>\n\n"
+                "<i>Это сообщение удалится через 10 сек.</i>"
             )
         else:
             reply = (
@@ -120,13 +131,12 @@ def handle_news_settings(args: str) -> None:
                 "Чтобы задать фильтр:\n"
                 "<code>/news_settings [твои требования]</code>\n\n"
                 "Пример:\n"
-                "<code>/news_settings Не отправляй новости про финансовые отчёты компаний</code>"
+                "<code>/news_settings Не отправляй новости про финансовые отчёты компаний</code>\n\n"
+                "<i>Это сообщение удалится через 10 сек.</i>"
             )
-        _tg("sendMessage", data={
-            "chat_id": AUTHORIZED_CHAT,
-            "parse_mode": "HTML",
-            "text": reply,
-        })
+        msg_id = _tg_send(reply)
+
+    return msg_id
 
 
 def main() -> None:
@@ -155,17 +165,31 @@ def main() -> None:
         parts = text.split(None, 1)
         cmd = parts[0].lower() if parts else ""
         args = parts[1].strip() if len(parts) > 1 else ""
+        msg_id = msg.get("message_id")
+
+        # Пробуем удалить сообщение пользователя
+        # (работает в группах где бот — админ; в личке игнорируется)
+        if msg_id:
+            _tg_delete_msg(msg_id)
 
         if cmd == "/news" and not trigger:
             trigger = True
-            _tg("sendMessage", data={
+            resp = _tg("sendMessage", data={
                 "chat_id": AUTHORIZED_CHAT,
-                "text": "⏳ Запускаю дайджест через GitHub Actions… подожди ~2 мин",
+                "text": "⏳ Запускаю дайджест… подожди ~2 мин",
             })
+            # Сохраняем message_id — main.py удалит его после отправки дайджеста
+            pending_msg_id = resp.get("result", {}).get("message_id")
+            if pending_msg_id:
+                PENDING_DELETE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                PENDING_DELETE_PATH.write_text(json.dumps({"message_id": pending_msg_id}))
             print("[poll] /news → запускаю дайджест", file=sys.stderr)
 
         elif cmd == "/news_settings":
-            handle_news_settings(args)
+            resp_id = handle_news_settings(args)
+            if resp_id:
+                time.sleep(10)
+                _tg_delete_msg(resp_id)
 
     save_offset(new_offset)
     set_output("trigger", "true" if trigger else "false")
