@@ -1,0 +1,48 @@
+name: News Digest
+
+on:
+  # 4 триггера UTC — фильтр по местному часу в main.py даёт ровно 2 запуска/день
+  # Лето (CEST = UTC+2): 05:00 UTC → 07:00, 17:00 UTC → 19:00
+  # Зима (CET  = UTC+1): 06:00 UTC → 07:00, 18:00 UTC → 19:00
+  schedule:
+    - cron: '0 5,6,17,18 * * *'
+  # Ручной запуск для теста (FORCE_RUN=1, игнорирует проверку часа)
+  workflow_dispatch:
+
+concurrency:
+  group: digest
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run digest
+        env:
+          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: python main.py
+
+      - name: Commit state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/seen.json
+          git diff --staged --quiet || git commit -m "chore: update seen.json [skip ci]"
+          git push

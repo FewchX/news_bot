@@ -1,0 +1,55 @@
+settings:
+  hl: "en-US"
+  gl: "US"
+  ceid: "US:en"
+  lookback_hours: 24
+  default_max_per_topic: 10
+  # Проверь точное имя модели в AI Studio: aistudio.google.com -> My models
+  model: "gemma-4-31b-it"
+
+topics:
+  # ── КРИТИЧНЫЕ — приходят ВСЕ новости без обрезки ──────────────────────────
+  - name: "🥽 Even Realities"
+    priority: critical
+    queries:
+      - '"Even Realities"'
+      - '"Even Realities G1"'
+      - '"Even Realities glasses"'
+    extra_feeds:
+      - "https://evenrealities.com/blogs/news.atom"
+      - "https://www.reddit.com/r/EvenRealities/.rss"
+    max_per_topic: null  # null = без лимита для critical
+
+  # ── ВЫСОКИЙ ПРИОРИТЕТ — все новости, коротко ──────────────────────────────
+  - name: "🦸 AI Hero"
+    priority: high
+    queries:
+      - '"ai-hero.dev"'
+      - '"Matt Pocock" AI'
+    extra_feeds:
+      - "https://www.ai-hero.dev/rss.xml"
+    max_per_topic: 15
+
+  # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
+  # Раскомментируй или добавь свои топики:
+
+  # - name: "🤖 AI Agents"
+  #   priority: normal
+  #   queries:
+  #     - "AI agents news 2025"
+  #     - "LLM agents framework"
+  #   max_per_topic: 8
+
+  # - name: "🕶️ AR Glasses"
+  #   priority: normal
+  #   queries:
+  #     - "AR smart glasses news"
+  #     - "augmented reality glasses 2025"
+  #   max_per_topic: 8
+
+  # - name: "🧠 LLM News"
+  #   priority: normal
+  #   queries:
+  #     - "large language model news"
+  #     - "GPT Claude Gemini news"
+  #   max_per_topic: 8
