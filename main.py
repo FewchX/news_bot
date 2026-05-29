@@ -476,15 +476,34 @@ def fallback_digest(articles: list) -> str:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main(force: bool = False) -> None:
-    # ── DST guard — пропускаем запуски не в 7:00 / 19:00 по Братиславе ───────
-    if not force and not os.environ.get("FORCE_RUN"):
-        hour_local = datetime.now(TZ).hour
-        if hour_local not in (7, 19):
-            print(f"[skip] local hour={hour_local}, not 7 or 19", file=sys.stderr)
+    hour_local = datetime.now(TZ).hour
+
+    # ── Определяем режим ──────────────────────────────────────────────────────
+    if force or os.environ.get("FORCE_RUN"):
+        mode = "manual"
+        lookback_h = LOOKBACK_H          # из config (3ч по умолчанию)
+        label_suffix = ""
+    else:
+        if hour_local not in range(7, 23):   # активные часы: 07:00–22:00
+            print(f"[skip] local hour={hour_local}, outside 07-22", file=sys.stderr)
             return
+        if hour_local == 7:
+            mode = "night_recap"
+            lookback_h = 9               # с 22:00 вчера до 07:00
+            label_suffix = "  •  🌅 Новости за ночь"
+        elif hour_local == 22:
+            mode = "day_recap"
+            lookback_h = 1
+            label_suffix = "  •  🌙 Итог дня"
+        else:
+            mode = "hourly"
+            lookback_h = 1
+            label_suffix = ""
+
+    print(f"[main] mode={mode} lookback={lookback_h}h hour_local={hour_local}", file=sys.stderr)
 
     seen = load_seen()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_H)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_h)
     all_articles: list = []
 
     for topic in TOPICS:
@@ -511,7 +530,7 @@ def main(force: bool = False) -> None:
 
     for source_type, section_label, empty_word in SECTIONS:
         bucket = [a for a in all_articles if a.get("_source_type") == source_type]
-        header = f"<b>{section_label}</b>  •  <i>{now_str}</i>\n\n"
+        header = f"<b>{section_label}</b>  •  <i>{now_str}</i>{label_suffix}\n\n"
 
         if bucket:
             # Запоминаем самую свежую статью этого типа
@@ -551,6 +570,10 @@ def main(force: bool = False) -> None:
             else:
                 body = f"Новых {empty_word} пока не было."
             _tg_send_one(header + body, "HTML")
+
+    # "Спокойной ночи" в конце вечернего дайджеста
+    if mode == "day_recap":
+        _tg_send_one("🌙 Спокойной ночи!", None)
 
     new_hashes = {a["_hash"] for a in all_articles}
     seen.update(new_hashes)

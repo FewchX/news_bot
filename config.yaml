@@ -2,7 +2,7 @@ settings:
   hl: "en-US"
   gl: "US"
   ceid: "US:en"
-  lookback_hours: 288
+  lookback_hours: 3  # используется только при ручном /news
   default_max_per_topic: 10
   # gemini-2.5-flash — быстрый (~3с), бесплатный, хорошо пишет по-русски
   # gemma-4-31b-it   — тяжёлый (31B), на free tier таймаутится, но доступен
