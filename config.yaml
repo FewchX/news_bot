@@ -5,7 +5,6 @@ settings:
   lookback_hours: 3  # используется только при ручном /news
   default_max_per_topic: 10
   # gemini-2.5-flash — быстрый (~3с), бесплатный, хорошо пишет по-русски
-  # gemma-4-31b-it   — тяжёлый (31B), на free tier таймаутится, но доступен
   model: "gemini-2.5-flash"
 
 topics:
@@ -16,22 +15,22 @@ topics:
       - '"Even Realities"'
       - '"Even Realities G1"'
       - '"Even Realities glasses"'
-    extra_feeds: []
-    max_per_topic: null  # null = без лимита для critical
+    extra_feeds:
+      - "https://www.reddit.com/search/.rss?q=%22Even+Realities%22&sort=new"
+    max_per_topic: null
 
-  # ── ВЫСОКИЙ ПРИОРИТЕТ — все новости, коротко ──────────────────────────────
+  # ── ВЫСОКИЙ ПРИОРИТЕТ ──────────────────────────────────────────────────────
   - name: "🦸 AI Hero"
     priority: high
     queries:
       - '"Matt Pocock" AI'
     extra_feeds:
       - "https://www.aihero.dev/rss.xml"
-      # YouTube канал Matt Pocock (@mattpocockuk)
       - "https://www.youtube.com/feeds/videos.xml?channel_id=UCswG6FSbgZjbWtdf_hMLaow"
+      - "https://www.reddit.com/search/.rss?q=%22Matt+Pocock%22+OR+%22aihero%22&sort=new"
     max_per_topic: 15
 
-  # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
-
+  # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ ───────────────────────────────────────────────────
   - name: "🤖 Anthropic & Claude"
     priority: normal
     queries:
@@ -39,8 +38,8 @@ topics:
       - '"Claude" Anthropic model'
       - '"Claude 4" OR "Claude 3" Anthropic'
     extra_feeds:
-      # Официальный YouTube канал Anthropic
       - "https://www.youtube.com/feeds/videos.xml?channel_id=UCrDwWp7EBBv4NwvScIpBDOA"
+      - "https://www.reddit.com/r/ClaudeAI/new/.rss"
     max_per_topic: 10
 
   - name: "💬 OpenAI & ChatGPT"
@@ -49,37 +48,13 @@ topics:
       - '"OpenAI" news'
       - '"ChatGPT" update'
       - '"GPT-4" OR "GPT-5" OpenAI'
-    extra_feeds: []
+    extra_feeds:
+      - "https://www.reddit.com/r/ChatGPT/new/.rss"
+      - "https://www.reddit.com/r/OpenAI/new/.rss"
     max_per_topic: 10
 
-  # Раскомментируй или добавь свои топики:
-
-  # - name: "🤖 AI Agents"
-  #   priority: normal
-  #   queries:
-  #     - "AI agents news 2025"
-  #     - "LLM agents framework"
-  #   max_per_topic: 8
-
-  # - name: "🕶️ AR Glasses"
-  #   priority: normal
-  #   queries:
-  #     - "AR smart glasses news"
-  #     - "augmented reality glasses 2025"
-  #   max_per_topic: 8
-
-  # - name: "🧠 LLM News"
-  #   priority: normal
-  #   queries:
-  #     - "large language model news"
-  #     - "GPT Claude Gemini news"
-  #   max_per_topic: 8
-
 # ── Email рассылки (IMAP) ──────────────────────────────────────────────────────
-# Порядок важен: каждый источник помечает письма как прочитанные,
-# следующий их уже не видит → никаких дублей между разделами.
 email_sources:
-  # Even Realities — письма попадают в тот же раздел что и RSS-новости
   - name: "🥽 Even Realities"
     imap_host: "imap.gmail.com"
     username: "newsbot053@gmail.com"
@@ -90,7 +65,6 @@ email_sources:
       - "even-realities"
       - "even realities"
 
-  # AI Hero — письма от Matt Pocock
   - name: "🦸 AI Hero"
     imap_host: "imap.gmail.com"
     username: "newsbot053@gmail.com"
@@ -102,10 +76,9 @@ email_sources:
       - "mattpocock"
       - "matt pocock"
 
-  # Всё остальное — catch-all (подпишись на любые другие рассылки)
+  # Всё остальное — catch-all
   - name: "📬 Рассылки"
     imap_host: "imap.gmail.com"
     username: "newsbot053@gmail.com"
     priority: normal
     max_per_source: 20
-    # senders пустой = берём все непрочитанные письма
