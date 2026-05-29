@@ -44,9 +44,24 @@ TG_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TG_CHAT = os.environ["TELEGRAM_CHAT_ID"]
 
 STATE_PATH = os.path.join(_root, "state", "seen.json")
+LAST_SEEN_PATH = os.path.join(_root, "state", "last_seen.json")
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; newsbot/1.0)"}
 
 # ── State ─────────────────────────────────────────────────────────────────────
+
+def load_last_seen() -> dict:
+    try:
+        with open(LAST_SEEN_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_last_seen(last_seen: dict) -> None:
+    os.makedirs(os.path.dirname(LAST_SEEN_PATH), exist_ok=True)
+    with open(LAST_SEEN_PATH, "w", encoding="utf-8") as f:
+        json.dump(last_seen, f, ensure_ascii=False, indent=2)
+
 
 def load_seen() -> set:
     try:
@@ -449,35 +464,63 @@ def main(force: bool = False) -> None:
         arts = fetch_email_articles(email_cfg, seen, cutoff)
         all_articles.extend(arts)
 
-    if not all_articles:
-        print("[done] нет новых статей", file=sys.stderr)
-        send_no_news()
-        return
-
     # ── 3 отдельных сообщения: почта → YouTube → новости ─────────────────────
     SECTIONS = [
-        ("email",   "📬 Письма и рассылки"),
-        ("youtube", "📺 YouTube"),
-        ("news",    "📰 Новости"),
+        ("email",   "📬 Письма и рассылки", "писем"),
+        ("youtube", "📺 YouTube",           "видео"),
+        ("news",    "📰 Новости",           "статей"),
     ]
 
+    last_seen = load_last_seen()
     now_str = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
-    for source_type, section_label in SECTIONS:
+
+    for source_type, section_label, empty_word in SECTIONS:
         bucket = [a for a in all_articles if a.get("_source_type") == source_type]
-        if not bucket:
-            continue
-        print(f"[{source_type}] {len(bucket)} статей → LLM", file=sys.stderr)
         header = f"<b>{section_label}</b>  •  <i>{now_str}</i>\n\n"
-        try:
-            digest = call_llm(bucket)
-            send_telegram(header + digest)
-        except Exception as exc:
-            print(f"[{source_type}] LLM ошибка: {exc}", file=sys.stderr)
-            _tg_send_one(header + fallback_digest(bucket), None)
+
+        if bucket:
+            # Запоминаем самую свежую статью этого типа
+            most_recent = max(bucket, key=lambda a: a["_pub"])
+            last_seen[source_type] = {
+                "title": most_recent["title"],
+                "topic": most_recent["topic"],
+                "link":  most_recent.get("link", ""),
+                "date":  most_recent["published"],
+            }
+            print(f"[{source_type}] {len(bucket)} статей → LLM", file=sys.stderr)
+            try:
+                digest = call_llm(bucket)
+                send_telegram(header + digest)
+            except Exception as exc:
+                print(f"[{source_type}] LLM ошибка: {exc}", file=sys.stderr)
+                _tg_send_one(header + fallback_digest(bucket), None)
+        else:
+            # Bucket пустой — показываем последнюю известную запись
+            last = last_seen.get(source_type)
+            if last:
+                try:
+                    dt = datetime.fromisoformat(last["date"])
+                    date_str = dt.astimezone(TZ).strftime("%d.%m.%Y")
+                except Exception:
+                    date_str = last["date"][:10]
+                link = last.get("link", "")
+                title_part = (
+                    f'<a href="{link}">{last["title"]}</a>'
+                    if link else f'<b>{last["title"]}</b>'
+                )
+                body = (
+                    f"Новых {empty_word} нет.\n\n"
+                    f"Последнее: {title_part}\n"
+                    f'<i>{last["topic"]} — {date_str}</i>'
+                )
+            else:
+                body = f"Новых {empty_word} пока не было."
+            _tg_send_one(header + body, "HTML")
 
     new_hashes = {a["_hash"] for a in all_articles}
     seen.update(new_hashes)
     save_seen(seen)
+    save_last_seen(last_seen)
     print(f"[done] добавлено {len(new_hashes)} хэшей в seen.json", file=sys.stderr)
 
 

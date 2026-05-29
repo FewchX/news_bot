@@ -26,6 +26,8 @@ topics:
       - '"Matt Pocock" AI'
     extra_feeds:
       - "https://www.aihero.dev/rss.xml"
+      # YouTube канал Matt Pocock (@mattpocockuk)
+      - "https://www.youtube.com/feeds/videos.xml?channel_id=UCswG6FSbgZjbWtdf_hMLaow"
     max_per_topic: 15
 
   # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
