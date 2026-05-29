@@ -27,7 +27,6 @@ topics:
     extra_feeds:
       - "https://www.aihero.dev/rss.xml"
       - "https://www.youtube.com/feeds/videos.xml?channel_id=UCswG6FSbgZjbWtdf_hMLaow"
-      - "https://www.reddit.com/search/.rss?q=%22Matt+Pocock%22+OR+%22aihero%22&sort=new"
     max_per_topic: 15
 
   # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ ───────────────────────────────────────────────────
@@ -40,6 +39,7 @@ topics:
     extra_feeds:
       - "https://www.youtube.com/feeds/videos.xml?channel_id=UCrDwWp7EBBv4NwvScIpBDOA"
       - "https://www.reddit.com/r/ClaudeAI/new/.rss"
+      - "https://www.reddit.com/r/Anthropic/new/.rss"
     max_per_topic: 10
 
   - name: "💬 OpenAI & ChatGPT"
