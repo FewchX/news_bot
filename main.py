@@ -312,11 +312,10 @@ def main(force: bool = False) -> None:
     print(f"[llm] всего {len(all_articles)} статей → вызов модели {MODEL}", file=sys.stderr)
     try:
         digest = call_llm(all_articles)
+        send_telegram(digest)
     except Exception as exc:
         print(f"[llm] ошибка: {exc} → fallback без суммаризации", file=sys.stderr)
-        digest = fallback_digest(all_articles)
-
-    send_telegram(digest)
+        _tg_send_one(fallback_digest(all_articles), None)
 
     new_hashes = {a["_hash"] for a in all_articles}
     seen.update(new_hashes)

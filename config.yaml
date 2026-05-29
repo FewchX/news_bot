@@ -4,8 +4,9 @@ settings:
   ceid: "US:en"
   lookback_hours: 24
   default_max_per_topic: 10
-  # Проверь точное имя модели в AI Studio: aistudio.google.com -> My models
-  model: "gemma-4-31b-it"
+  # gemini-2.5-flash — быстрый (~3с), бесплатный, хорошо пишет по-русски
+  # gemma-4-31b-it   — тяжёлый (31B), на free tier таймаутится, но доступен
+  model: "gemini-2.5-flash"
 
 topics:
   # ── КРИТИЧНЫЕ — приходят ВСЕ новости без обрезки ──────────────────────────
@@ -16,7 +17,6 @@ topics:
       - '"Even Realities G1"'
       - '"Even Realities glasses"'
     extra_feeds:
-      - "https://evenrealities.com/blogs/news.atom"
       - "https://www.reddit.com/r/EvenRealities/.rss"
     max_per_topic: null  # null = без лимита для critical
 
@@ -26,8 +26,7 @@ topics:
     queries:
       - '"ai-hero.dev"'
       - '"Matt Pocock" AI'
-    extra_feeds:
-      - "https://www.ai-hero.dev/rss.xml"
+    extra_feeds: []
     max_per_topic: 15
 
   # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
