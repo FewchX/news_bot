@@ -72,11 +72,20 @@ HELP = (
 )
 
 
+def drain_updates() -> int | None:
+    """Пропустить все накопившиеся апдейты, вернуть следующий offset."""
+    result = _tg("getUpdates", timeout=0)
+    updates = result.get("result", [])
+    if updates:
+        return updates[-1]["update_id"] + 1
+    return None
+
+
 def main() -> None:
     print("Бот запущен. Жди /news в Telegram или нажми Ctrl+C для выхода.")
+    offset = drain_updates()  # пропускаем старые сообщения
     send(f"🤖 Бот запущен.\n{HELP}")
 
-    offset: int | None = None
     running = True
 
     while running:
