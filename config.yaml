@@ -29,6 +29,25 @@ topics:
     max_per_topic: 15
 
   # ── НОРМАЛЬНЫЙ ПРИОРИТЕТ — фильтрация и объединение разрешены ─────────────
+
+  - name: "🤖 Anthropic & Claude"
+    priority: normal
+    queries:
+      - '"Anthropic" AI news'
+      - '"Claude" Anthropic model'
+      - '"Claude 4" OR "Claude 3" Anthropic'
+    extra_feeds: []
+    max_per_topic: 10
+
+  - name: "💬 OpenAI & ChatGPT"
+    priority: normal
+    queries:
+      - '"OpenAI" news'
+      - '"ChatGPT" update'
+      - '"GPT-4" OR "GPT-5" OpenAI'
+    extra_feeds: []
+    max_per_topic: 10
+
   # Раскомментируй или добавь свои топики:
 
   # - name: "🤖 AI Agents"
