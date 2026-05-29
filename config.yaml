@@ -53,15 +53,36 @@ topics:
   #   max_per_topic: 8
 
 # ── Email рассылки (IMAP) ──────────────────────────────────────────────────────
-# Подпишись на рассылки с newsbot053@gmail.com — они попадут в дайджест.
-# Пароль приложения хранится в GitHub Secrets как GMAIL_APP_PASSWORD.
+# Порядок важен: каждый источник помечает письма как прочитанные,
+# следующий их уже не видит → никаких дублей между разделами.
 email_sources:
-  - name: "📬 Рассылки"
+  # Even Realities — письма попадают в тот же раздел что и RSS-новости
+  - name: "🥽 Even Realities"
+    imap_host: "imap.gmail.com"
+    username: "newsbot053@gmail.com"
+    priority: critical
+    max_per_source: null
+    senders:
+      - "evenrealities"
+      - "even-realities"
+      - "even realities"
+
+  # AI Hero — письма от Matt Pocock
+  - name: "🦸 AI Hero"
     imap_host: "imap.gmail.com"
     username: "newsbot053@gmail.com"
     priority: high
+    max_per_source: 15
+    senders:
+      - "aihero"
+      - "ai-hero"
+      - "mattpocock"
+      - "matt pocock"
+
+  # Всё остальное — catch-all (подпишись на любые другие рассылки)
+  - name: "📬 Рассылки"
+    imap_host: "imap.gmail.com"
+    username: "newsbot053@gmail.com"
+    priority: normal
     max_per_source: 20
-    # Опционально — фильтр по отправителям (если пусто — берём все письма):
-    # senders:
-    #   - "newsletter@aihero.dev"
-    #   - "digest@tldr.tech"
+    # senders пустой = берём все непрочитанные письма
